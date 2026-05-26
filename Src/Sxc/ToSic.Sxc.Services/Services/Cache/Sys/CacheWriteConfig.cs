@@ -1,0 +1,49 @@
+﻿using ToSic.Sxc.Context;
+using ToSic.Sys.Utils;
+
+namespace ToSic.Sxc.Services.Cache.Sys;
+
+/// <summary>
+/// Partial Cache configuration information which is only relevant for **writing** to the cache.
+/// </summary>
+/// <remarks>
+/// The object itself will not be serialized or stored in the cache,
+/// but is used to specify how the cache will be set up - for example timeouts or watchers.
+/// 
+/// Any information in this object is either
+/// - not relevant for _retrieving_ from the cache
+/// - too complex / changing to be serialized
+/// - would cause trouble if also cached, since it might change fairly randomly
+/// </remarks>
+[InternalApi_DoNotUse_MayChangeWithoutNotice]
+public record CacheWriteConfig
+{
+    public CacheWriteConfig(NoParamOrder npo = default, string? watch = null)
+    {
+        foreach (var part in watch.CsvToArrayWithoutEmpty())
+            switch (part.ToLowerInvariant())
+            {
+                case "data":
+                    WatchAppData = true;
+                    break;
+                // ReSharper disable once StringLiteralTypo
+                case "folder":
+                    WatchAppFolder = true;
+                    break;
+                default:
+                    throw new ArgumentException($@"Unknown {nameof(watch)} part '{part}'", nameof(watch));
+            }
+    }
+
+    public bool WatchAppData { get; init; }
+    public bool WatchAppFolder { get; init; }
+    public bool WatchAppSubfolders { get; init; }
+
+    public DateTimeOffset AbsoluteExpiration { get; init; }
+
+    public int SlidingExpirationSeconds { get; init; }
+
+    public List<(IParameters Parameters, string? Names, bool CaseSensitive)> AdditionalParameters = [];
+
+    public List<(string Name, string Value, bool CaseSensitive)> AdditionalValues = [];
+}

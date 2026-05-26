@@ -1,0 +1,125 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <Import Project="../../SharedImports/CsProj.Props/AllImportsForRealCode-NetCore.props" />
+
+  <Import Project="../../SharedImports/CsProj.Props/Reference/RazorBlade.props" />
+
+  <Import Project="../../SharedImports/CsProj.Props/CreateXDocsOnRelease.props" />
+
+  <PropertyGroup>
+    <RootNamespace>ToSic.Sxc.Oqt.Server</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
+    <AssemblyName>ToSic.Sxc.Oqtane.Server</AssemblyName>
+    <!--2dm I think we need this to include DLLs-->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <RunAnalyzersDuringBuild>false</RunAnalyzersDuringBuild>
+    <AnalysisLevel>none</AnalysisLevel>
+
+    <!-- 2dm - this seems necessary to ensure that compiler DLLs are included in the output -->
+    <!-- See: https://github.com/toddams/RazorLight/issues/294 and https://stackoverflow.com/questions/40426665/what-is-the-use-of-preservecompilationcontext-under-build-option-in-project-json -->
+    <!-- also https://github.com/dotnet/aspnetcore/issues/14418 -->
+    <!-- but apparently we don't need it, bcause it's set when we activate dynamic razor compilation ... https://github.com/dotnet/aspnetcore/issues/20173 ??? -->
+    <!--<PreserveCompilationReferences>true</PreserveCompilationReferences>
+    <PreserveCompilationContext>true</PreserveCompilationContext>-->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Apps\**" />
+    <Compile Remove="Contents\**" />
+    <Compile Remove="Content\**" />
+    <Compile Remove="Engines\**" />
+    <Compile Remove="RazorPartialToString\**" />
+    <Compile Remove="wwwroot\Modules\ToSic.Sxc.Oqtane.Install\**" />
+    <Compile Remove="wwwroot\Modules\ToSic.Sxc.Oqtane\**" />
+    <Compile Remove="wwwroot\Modules\ToSic.Sxc\**" />
+    <Content Remove="Apps\**" />
+    <Content Remove="Contents\**" />
+    <Content Remove="Content\**" />
+    <Content Remove="Engines\**" />
+    <Content Remove="RazorPartialToString\**" />
+    <Content Remove="wwwroot\Modules\ToSic.Sxc.Oqtane.Install\**" />
+    <Content Remove="wwwroot\Modules\ToSic.Sxc.Oqtane\**" />
+    <Content Remove="wwwroot\Modules\ToSic.Sxc\**" />
+    <EmbeddedResource Remove="Apps\**" />
+    <EmbeddedResource Remove="Contents\**" />
+    <EmbeddedResource Remove="Content\**" />
+    <EmbeddedResource Remove="Engines\**" />
+    <EmbeddedResource Remove="RazorPartialToString\**" />
+    <EmbeddedResource Remove="wwwroot\Modules\ToSic.Sxc.Oqtane.Install\**" />
+    <EmbeddedResource Remove="wwwroot\Modules\ToSic.Sxc.Oqtane\**" />
+    <EmbeddedResource Remove="wwwroot\Modules\ToSic.Sxc\**" />
+    <None Remove="Apps\**" />
+    <None Remove="Contents\**" />
+    <None Remove="Content\**" />
+    <None Remove="Engines\**" />
+    <None Remove="RazorPartialToString\**" />
+    <None Remove="wwwroot\Modules\ToSic.Sxc.Oqtane.Install\**" />
+    <None Remove="wwwroot\Modules\ToSic.Sxc.Oqtane\**" />
+    <None Remove="wwwroot\Modules\ToSic.Sxc\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="StartUp\IIsSxcRazorPage.cs" />
+    <Compile Remove="StartUp\SxcRazorPage.cs" />
+    <Compile Remove="StartUp\SxcRazorPage_Block.cs" />
+    <Compile Remove="StartUp\SxcRazorPage_CreateInstance.cs" />
+    <Compile Remove="StartUp\SxcRazorPage_IDynamicCode.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- stv - SQL scripts have to be included as embedded resources -->
+    <!-- to be executed as part of oqtane installation or upgrade procedure -->
+    <EmbeddedResource Include="Scripts\*.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="9.0.5" /><!-- from Oqtane.Server.csproj -->
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="9.0.5" /><!-- from Oqtane.Server.csproj -->
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.5" /><!-- from Oqtane.Server.csproj -->
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="9.0.5" />
+    <PackageReference Include="Microsoft.AspNetCore.StaticFiles" Version="2.2.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.5" /><!-- from Oqtane.Server.csproj -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.5" /><!-- from Oqtane.Database.SqlServer.csproj -->
+    <PackageReference Include="Microsoft.Extensions.Localization" Version="9.0.5" /><!-- from Oqtane.Server.csproj -->
+    <PackageReference Include="Oqtane.Client" Version="6.1.3" />
+    <PackageReference Include="Oqtane.Server" Version="6.1.3" />
+    <PackageReference Include="Oqtane.Shared" Version="6.1.3" />
+    <PackageReference Include="ToSic.Imageflow.Oqtane" Version="1.12.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\eav-server\ToSic.Eav.ImportExport\ToSic.Eav.ImportExport.csproj" />
+    <ProjectReference Include="..\..\..\..\eav-server\ToSic.Sys.Core\ToSic.Sys.Core.csproj" />
+    <!--<ProjectReference Include="..\..\..\..\oqtane\oqtane.framework\Oqtane.Server\Oqtane.Server.csproj" />-->
+    <!--<ProjectReference Include="..\..\..\..\oqtane\oqtane.framework\Oqtane.Shared\Oqtane.Shared.csproj" />-->
+    <ProjectReference Include="..\..\Razor\ToSic.Sxc.Razor\ToSic.Sxc.Razor.csproj" />
+    <ProjectReference Include="..\..\Sxc\ToSic.Sxc.Adam\ToSic.Sxc.Adam.csproj" />
+    <ProjectReference Include="..\..\Sxc\ToSic.Sxc.Apps\ToSic.Sxc.Apps.csproj" />
+    <ProjectReference Include="..\..\Sxc\ToSic.Sxc.Blocks\ToSic.Sxc.Blocks.csproj" />
+    <ProjectReference Include="..\..\Sxc\ToSic.Sxc.Cms\ToSic.Sxc.Cms.csproj" />
+    <ProjectReference Include="..\..\Sxc\ToSic.Sxc.Code.HotBuild\ToSic.Sxc.Code.HotBuild.csproj" />
+    <ProjectReference Include="..\..\Sxc\ToSic.Sxc.Core\ToSic.Sxc.Core.csproj" />
+    <ProjectReference Include="..\..\Sxc\ToSic.Sxc.Custom\ToSic.Sxc.Custom.csproj" />
+    <ProjectReference Include="..\..\Sxc\ToSic.Sxc.Data\ToSic.Sxc.Data.csproj" />
+    <ProjectReference Include="..\..\Sxc\ToSic.Sxc.Edit\ToSic.Sxc.Edit.csproj" />
+    <ProjectReference Include="..\..\Sxc\ToSic.Sxc.Images\ToSic.Sxc.Images.csproj" />
+    <ProjectReference Include="..\..\Sxc\ToSic.Sxc.LightSpeed\ToSic.Sxc.LightSpeed.csproj" />
+    <ProjectReference Include="..\..\Sxc\ToSic.Sxc.Render\ToSic.Sxc.Render.csproj" />
+    <ProjectReference Include="..\..\Sxc\ToSic.Sxc.Services\ToSic.Sxc.Services.csproj" />
+    <ProjectReference Include="..\..\Sxc\ToSic.Sxc.WebApi\ToSic.Sxc.WebApi.csproj" />
+    <ProjectReference Include="..\..\Sxc\ToSic.Sxc.Web\ToSic.Sxc.Web.csproj" />
+    <ProjectReference Include="..\ToSic.Sxc.Oqt.Shared\ToSic.Sxc.Oqt.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Connect.Koi">
+      <HintPath>..\..\..\Dependencies\Koi\net6.0\Connect.Koi.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="wwwroot\Modules\" />
+  </ItemGroup>
+</Project>

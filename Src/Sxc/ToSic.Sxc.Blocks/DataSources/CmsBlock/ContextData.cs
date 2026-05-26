@@ -1,0 +1,51 @@
+﻿using ToSic.Eav.DataSource;
+using ToSic.Eav.DataSources;
+using ToSic.Sxc.Blocks.Sys.Views;
+
+// 2025-06 removed for v20
+//#if NETFRAMEWORK
+//using ToSic.Eav.Apps;
+//using CodeInfoService = ToSic.Sys.Code.InfoSystem.CodeInfoService;
+//#endif
+
+namespace ToSic.Sxc.DataSources;
+
+// TODO: MAKE class INTERNAL AGAIN AFTER MOVING TO ToSic.Sxc.Custom
+
+/// <summary>
+/// The main data source for Blocks. Internally often uses <see cref="CmsBlock"/> to find what it should provide.
+/// </summary>
+/// <remarks>
+/// It's based on the <see cref="PassThrough"/> data source, because it's just a coordination-wrapper.
+/// In v19 we removed the implementation of IBlockInstance as it was identical to IDataSource.
+/// ...so if anybody had code using that name, it could break, but we assume this is never the case since people would always just use the `Data` object without casting a variable.
+/// </remarks>
+[PrivateApi("used to be Internal... till 16.01, then changed to private to hide implementation")]
+[ShowApiWhenReleased(ShowApiMode.Never)]
+// ReSharper disable once PartialTypeWithSinglePart
+public partial class ContextData(DataSourceBase.Dependencies services) : PassThrough(services, "Sxc.BlckDs")
+{
+
+    #region New v16
+
+    // TODO: MAKE class INTERNAL AGAIN AFTER MOVING TO ToSic.Sxc.Custom
+    public IEnumerable<IEntity> MyItems => _myContent.Get(() => _blockSource.GetStream(emptyIfNotFound: true)!.List)!;
+    private readonly GetOnce<IEnumerable<IEntity>> _myContent = new();
+
+    // TODO: MAKE class INTERNAL AGAIN AFTER MOVING TO ToSic.Sxc.Custom
+    public IEnumerable<IEntity> MyHeaders => _header.Get(() => _blockSource.GetStream(ViewParts.StreamHeader, emptyIfNotFound: true)!.List)!;
+    private readonly GetOnce<IEnumerable<IEntity>> _header = new();
+        
+    #endregion
+
+
+    internal void SetOut(IQuery querySource)
+        => _querySource = querySource;
+    private IQuery? _querySource;
+    internal void SetBlock(CmsBlock blockSource)
+        => _blockSource = blockSource;
+    private CmsBlock _blockSource = null!;
+
+    public override IReadOnlyDictionary<string, IDataStream> Out => _querySource?.Out ?? base.Out;
+
+}

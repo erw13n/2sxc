@@ -1,0 +1,179 @@
+﻿using ToSic.Eav.LookUp;
+using ToSic.Eav.LookUp.Sources;
+using ToSic.Eav.LookUp.Sys.Engines;
+using ToSic.Sxc.Blocks.Sys;
+using ToSic.Sxc.Data;
+using ToSic.Sxc.Data.Sys.Factory;
+using ToSic.Sxc.Data.Sys.Typed;
+using ToSic.Sxc.Services.Sys;
+using ToSic.Sxc.Services.Template;
+using ToSic.Sxc.Sys.ExecutionContext;
+using ToSic.Sys.Utils;
+
+namespace ToSic.Sxc.Services.Templates;
+
+internal class TemplateService(LazySvc<ILookUpEngineResolver> getLookupsLazy) : ServiceWithContext($"{SxcLogName}.LUpSvc"), ITemplateService
+{
+    #region Get Engine Default / Empty
+
+    public ITemplateEngine Default(NoParamOrder npo = default, IEnumerable<ILookUp>? sources = default)
+    {
+        var sourcesList = sources?.ToList();
+        var noSources = sourcesList == null || sourcesList.Count == 0;
+        if (_default != null && noSources)
+            return _default;
+
+        // in some cases, like when testing, the _CodeApiSvc is not available
+        // then it should still work, but of course not know about the app's sources
+        var original = ((IExCtxLookUpEngine?)ExCtxOrNull)?.LookUpForDataSources // #DropAppConfigurationProvider ((Apps.App?)ExCtxOrNull?.GetApp())?.ConfigurationProvider
+            ?? getLookupsLazy.Value.GetLookUpEngine(ExCtxOrNull?.GetBlock()?.Context?.Module?.Id ?? 0);
+        
+        return noSources
+            ? _default = new TemplateEngineTokens(original)
+            : new TemplateEngineTokens(new LookUpEngine(original, Log, sources: sourcesList));
+    }
+
+    private ITemplateEngine? _default;
+
+    public ITemplateEngine Empty(NoParamOrder npo = default, IEnumerable<ILookUp>? sources = null)
+    {
+        var sourcesList = sources?.ToList();
+        var noSources = sourcesList == null || sourcesList.Count == 0;
+        if (_empty != null && noSources)
+            return _empty;
+
+        ILookUpEngine originalEngine = new LookUpEngine(Log, sources: sourcesList);
+        
+        return noSources
+            ? _empty ??= new TemplateEngineTokens(originalEngine)
+            : new TemplateEngineTokens(originalEngine);
+    }
+    private ITemplateEngine? _empty;
+
+    #endregion
+
+    #region GetSource
+
+    public ILookUp? GetSource(string name)
+        => Default().GetSources(depth: 10).FirstOrDefault(s => s.Name.EqualsInsensitive(name));
+
+
+    #endregion
+
+    #region Quick Parse
+
+    [field: AllowNull, MaybeNull]
+    private ITemplateEngine Engine => field ??= Default();
+
+
+    string ITemplateService.Parse(string template, NoParamOrder npo, bool allowHtml, IEnumerable<ILookUp>? sources, int recursions)
+        => Engine.Parse(template, npo, allowHtml: allowHtml, sources: sources, recursions: recursions);
+
+    #endregion
+
+    #region Create Sources
+
+    public ILookUp CreateSource(string name, IDictionary<string, string> values) 
+        => new LookUpInDictionary(NameOrErrorIfBad(name), values);
+
+    public ILookUp CreateSource(string name, ILookUp original)
+        => new LookUpInLookUps(NameOrErrorIfBad(name), [original]);
+
+    public ILookUp CreateSource(string name, Func<string, string> getter)
+        => new LookUpWithFunction(NameOrErrorIfBad(name), getter);
+
+    public ILookUp CreateSource(string name, Func<string, string, string> getter)
+        => new LookUpWithFunctionAndFormat(NameOrErrorIfBad(name), getter);
+
+    [field: AllowNull, MaybeNull]
+    private ICodeDataFactory Cdf => field ??= ExCtx.GetCdf();
+
+    public ILookUp CreateSource(string name, ICanBeEntity item, NoParamOrder npo = default, string[]? dimensions = default) 
+        => new LookUpInEntity(name, item.Entity, dimensions: dimensions ?? Cdf.Dimensions);
+
+    public ILookUp MergeSources(string name, IEnumerable<ILookUp>? sources)
+    {
+        var sourceList = sources
+                             ?.ToList()
+                         ?? throw new ArgumentNullException(nameof(sources), @"Sources must not be null");
+
+        if (!sourceList.Any())
+            throw new ArgumentException(@"Sources must not be empty", nameof(sources));
+
+        return new LookUpInLookUps(name, sourceList);
+    }
+
+    private string NameOrErrorIfBad(string name)
+        => string.IsNullOrWhiteSpace(name)
+            ? throw new ArgumentException(@"Name must not be empty", nameof(name))
+            : name.ToLowerInvariant();
+
+    #endregion
+
+    #region Create Templated Entity
+
+    ITypedItem ITemplateService.ParseAsItem(ICanBeEntity original, NoParamOrder npo,
+        bool allowHtml,
+        ITemplateEngine? parser, 
+        IEnumerable<ILookUp>? sources,
+        int recursions
+    )
+    {
+        var entity = original.Entity;
+        if (entity == null)
+            throw new ArgumentException(@"The original item must have an entity", nameof(original));
+
+        parser ??= Empty(sources: sources);
+
+        var templated = new TypedItemOfEntity(entity, Cdf, true, overrider: new ValueTemplateParser(parser, null));
+        return templated;
+    }
+
+    T ITemplateService.ParseAs<T>(ICanBeEntity original, NoParamOrder npo,
+        bool allowHtml,
+        ITemplateEngine? parser,
+        IEnumerable<ILookUp>? sources,
+        int recursions
+    )
+    {
+        var templated = ((ITemplateService)this).ParseAsItem(original, npo, allowHtml, parser, sources, recursions: recursions);
+        return Cdf.AsCustom<T>(source: templated);
+    }
+
+
+    private class ValueTemplateParser(ITemplateEngine? parser, ILookUp? overrides, bool allowHtml = false) : IValueOverrider
+    {
+        #region Experiment - but decided for now that it's too much compute for something which is extremely rarely used, and can be done with an if-statement in the code
+        //public object? OverrideRaw(string name)
+        //{
+        //    if (overrides == null)
+        //        return null;
+        //    var found = overrides.Get(name);
+        //    return string.IsNullOrEmpty(found) ? null : found;
+        //}
+
+        //public T? OverrideRaw<T>(string name)
+        //{
+        //    if (overrides == null)
+        //        return default;
+        //    if (overrides is IWrapper<IEntity> entityLookUp)
+        //    {
+        //        var entity = entityLookUp.GetContents();
+        //        if (entity != null)
+        //            return entity.Get<T>(name);
+        //    }
+        //    var found = overrides.Get(name);
+        //    return found.ConvertOrDefault<T>();
+        //}
+        #endregion
+
+        public string? ProcessString(string name, string? originalValue)
+            => originalValue == null || parser == null
+                ? null
+                : parser.Parse(originalValue, allowHtml: allowHtml);
+    }
+    #endregion
+
+
+}
+

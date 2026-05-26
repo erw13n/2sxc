@@ -1,0 +1,167 @@
+﻿using Custom.Razor.Sys;
+using ToSic.Eav.LookUp.Sys.Engines;
+using ToSic.Sxc.Adam;
+using ToSic.Sxc.Code.Sys.CodeApi;
+using ToSic.Sxc.Code.Sys.CodeErrorHelp;
+using ToSic.Sxc.Dnn.Razor;
+using ToSic.Sxc.Sys.ExecutionContext;
+using ToSic.Sys.Code.Help;
+using IApp = ToSic.Sxc.Apps.IApp;
+
+
+// ReSharper disable once CheckNamespace
+namespace Custom.Hybrid;
+
+/// <summary>
+/// The base class for Hybrid Razor-Components in 2sxc 12 <br/>
+/// Provides context objects like CmsContext, helpers like Edit and much more. <br/>
+/// </summary>
+[PublicApi]
+public abstract partial class Razor12 : RazorComponentBase, IRazor12, IHasCodeHelp, ICreateInstance
+{
+    internal ICodeDynamicApiHelper CodeApi => field ??= ExCtx.GetDynamicApi();
+
+    /// <inheritdoc cref="DnnRazorHelper.RenderPageNotSupported"/>
+    [PrivateApi]
+    [ShowApiWhenReleased(ShowApiMode.Never)]
+    public override HelperResult RenderPage(string path, params object[] data) 
+        => RzrHlp.RenderPageNotSupported();
+
+    #region Core Properties which should appear in docs
+
+    /// <inheritdoc cref="IHasCodeLog.Log" />
+    public override ICodeLog Log => RzrHlp.CodeLog;
+
+    /// <inheritdoc />
+    public override IHtmlHelper Html => RzrHlp.Html;
+
+    #endregion
+
+
+    #region Link, Edit, Dnn, App, Data
+
+    /// <inheritdoc cref="IDynamicCodeDocs.Link" />
+    public ILinkService Link => CodeApi.Link;
+
+    /// <inheritdoc cref="IDynamicCodeDocs.Edit" />
+    public IEditService Edit => CodeApi.Edit;
+
+    /// <inheritdoc cref="ICanGetService.GetService{TService}"/>
+    public TService GetService<TService>() where TService : class => CodeApi.GetService<TService>();
+
+    [PrivateApi] public override int CompatibilityLevel => CompatibilityLevels.CompatibilityLevel12;
+
+    /// <inheritdoc />
+    public new IApp App => CodeApi.App;
+
+    /// <inheritdoc />
+    public IDataSource Data => CodeApi.Data;
+
+    #endregion
+
+    #region AsDynamic in many variations
+
+    /// <inheritdoc cref="IDynamicCodeDocs.AsDynamic(string, string)" />
+    public dynamic AsDynamic(string json, string fallback = default) => CodeApi.Cdf.Json2Jacket(json, fallback);
+
+    /// <inheritdoc cref="IDynamicCodeDocs.AsDynamic(IEntity)" />
+    public dynamic AsDynamic(IEntity entity) => CodeApi.Cdf.CodeAsDyn(entity);
+
+    /// <inheritdoc cref="IDynamicCodeDocs.AsDynamic(object)" />
+    public dynamic AsDynamic(object dynamicEntity) => CodeApi.Cdf.AsDynamicFromObject(dynamicEntity);
+
+    /// <inheritdoc cref="IDynamicCode12Docs.AsDynamic(object[])" />
+    [PublicApi("Careful - still Experimental in 12.02")]
+    public dynamic AsDynamic(params object[] entities) => CodeApi.Cdf.MergeDynamic(entities);
+
+    #endregion
+
+    #region AsEntity
+    /// <inheritdoc cref="IDynamicCodeDocs.AsEntity" />
+    public IEntity AsEntity(object dynamicEntity) => CodeApi.Cdf.AsEntity(dynamicEntity);
+    #endregion
+
+    #region AsList
+
+    /// <inheritdoc cref="IDynamicCodeDocs.AsList" />
+    public IEnumerable<dynamic> AsList(object list) => CodeApi.Cdf.CodeAsDynList(list);
+
+    #endregion
+
+    #region Convert-Service
+
+    /// <inheritdoc />
+    public IConvertService Convert => field ??= CodeApi.Convert;
+
+    #endregion
+
+
+    #region Data Source Stuff
+
+    /// <inheritdoc cref="IDynamicCodeDocs.CreateSource{T}(IDataSource, ILookUpEngine)" />
+    public T CreateSource<T>(IDataSource inSource = null, ILookUpEngine configurationProvider = default) where T : IDataSource
+        => CodeApi.CreateSource<T>(inSource, configurationProvider);
+
+    /// <inheritdoc cref="IDynamicCodeDocs.CreateSource{T}(IDataStream)" />
+    public T CreateSource<T>(IDataStream source) where T : IDataSource
+        => CodeApi.CreateSource<T>(source);
+
+    #endregion
+
+    #region Content, Header, etc. and List
+
+    /// <inheritdoc cref="IDynamicCodeDocs.Content" />
+    public dynamic Content => CodeApi.Content;
+
+    /// <inheritdoc cref="IDynamicCodeDocs.Header" />
+    public dynamic Header => CodeApi.Header;
+
+    #endregion
+
+
+
+
+
+    #region Adam 
+
+    /// <inheritdoc cref="IDynamicCodeDocs.AsAdam" />
+    public IFolder AsAdam(ICanBeEntity item, string fieldName) => CodeApi.AsAdam(item, fieldName);
+
+    #endregion
+
+    #region v11 properties CmsContext
+
+    /// <inheritdoc cref="IDynamicCodeDocs.CmsContext" />
+    public ICmsContext CmsContext => CodeApi.CmsContext;
+    #endregion
+
+    #region v12 properties Resources, Settings, Path
+
+    /// <inheritdoc cref="IDynamicCode12Docs.Resources" />
+    public dynamic Resources => CodeApi.Resources;
+
+    /// <inheritdoc cref="IDynamicCode12Docs.Settings" />
+    public dynamic Settings => CodeApi.Settings;
+
+    [PrivateApi("Not yet ready")]
+    public IDevTools DevTools => CodeApi.DevTools;
+
+    ///// <inheritdoc />
+    //public string Path => VirtualPath;
+
+    [PrivateApi] List<CodeHelp> IHasCodeHelp.ErrorHelpers => HelpDbRazor.CompileRazorOrCode12;
+
+    #endregion
+
+    #region CreateInstance
+
+    /// <inheritdoc cref="ICreateInstance.CreateInstancePath"/>
+    [PrivateApi] string IGetCodePath.CreateInstancePath { get; set; }
+
+    /// <inheritdoc cref="ICreateInstance.CreateInstance"/>
+    public virtual dynamic CreateInstance(string virtualPath, NoParamOrder npo = default, string name = null, string relativePath = null, bool throwOnError = true)
+        => RzrHlp.CreateInstance(virtualPath: virtualPath, name: name, throwOnError: throwOnError);
+
+    #endregion
+
+}

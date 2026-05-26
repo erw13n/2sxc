@@ -1,0 +1,32 @@
+using ToSic.Sxc.Blocks.Sys;
+using ToSic.Sxc.Render.Sys;
+using ToSic.Sys.Caching;
+using ToSic.Sys.Memory;
+
+namespace ToSic.Sxc.Web.Sys.LightSpeed;
+
+[ShowApiWhenReleased(ShowApiMode.Never)]
+public class OutputCacheItem(IRenderResult data) : ICanEstimateSize, ITimestamped
+{
+    public IRenderResult Data { get; } = data;
+
+    public int AppId => Data.AppId;
+
+    public List<IDependentApp>? DependentApps => Data.DependentApps;
+
+//#if NETFRAMEWORK
+//    /// <summary>
+//    /// This is only used in Dnn - might be solved with generics some time, but ATM this is just simpler
+//    /// </summary>
+//    public bool EnforcePre1025 = true;
+
+//#endif
+    public SizeEstimate EstimateSize(ILog? log = default)
+                => (Data as ICanEstimateSize)?.EstimateSize(log)
+                    ?? new SizeEstimate(0, 0, IsUnknown: true);
+
+    /// <summary>
+    /// Timestamp info to better analyze cache data
+    /// </summary>
+    long ITimestamped.CacheTimestamp { get; } = DateTime.Now.Ticks;
+}

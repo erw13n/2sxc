@@ -1,0 +1,167 @@
+﻿using System.Text.Json.Serialization;
+using ToSic.Eav.Data.Sys.PropertyLookup;
+using ToSic.Razor.Blade;
+using ToSic.Sxc.Adam;
+using ToSic.Sxc.Cms.Data;
+using ToSic.Sxc.Data.Options;
+using ToSic.Sxc.Data.Sys.Typed;
+using ToSic.Sxc.Images;
+using ToSic.Sxc.Services.Tweaks;
+using static ToSic.Sxc.Data.Sys.Typed.TypedHelpers;
+
+namespace ToSic.Sxc.Data.Sys.TypedStack;
+
+internal partial class TypedStack: ITypedItem
+{
+    private const string NotImplementedError = "This is a stack. This method/property is not clearly defined on a stack of objects.";
+
+    private const string ParentNotImplemented = "This is a stack. There are no parents as nothing can ever point to a stack directly, only to specific objects inside it.";
+
+    IEntity ICanBeEntity.Entity => throw new NotImplementedException(NotImplementedError);
+
+    ITypedItem ICanBeItem.Item => this;
+
+    bool IEquatable<ITypedItem>.Equals(ITypedItem? other) => ReferenceEquals(this, other);
+
+    bool ITypedItem.IsDemoItem => false;
+
+    IHtmlTag? ITypedItem.Html(string name, NoParamOrder npo, object? container, bool? toolbar,
+        object? imageSettings, bool? required, bool debug, Func<ITweakInput<string>, ITweakInput<string>>? tweak)
+        => TypedItemHelpers.Html(Cdf, this, name, npo, container, toolbar, imageSettings, required, debug, tweak);
+
+    IResponsivePicture? ITypedItem.Picture(string name, NoParamOrder npo,
+        Func<ITweakMedia, ITweakMedia>? tweak,
+        object? settings,
+        object? factor, object? width, string? imgAlt, string? imgAltFallback,
+        string? imgClass, object? imgAttributes, string? pictureClass,
+        object? pictureAttributes, object? toolbar, object? recipe
+    ) => TypedItemHelpers.Picture(cdf: Cdf, item: this, name: name, npo: npo, tweak: tweak, settings: settings,
+        factor: factor, width: width, imgAlt: imgAlt, imgAltFallback: imgAltFallback,
+        imgClass: imgClass, imgAttributes: imgAttributes, pictureClass: pictureClass,
+        pictureAttributes: pictureAttributes,
+        toolbar: toolbar, recipe: recipe);
+
+    IResponsiveImage? ITypedItem.Img(string name, NoParamOrder npo, Func<ITweakMedia, ITweakMedia>? tweak, object? settings, object? factor,
+        object? width, string? imgAlt, string? imgAltFallback, string? imgClass, object? imgAttributes, object? toolbar, object? recipe
+    ) => TypedItemHelpers.Img(cdf: Cdf, item: this, name: name, npo: npo, tweak: tweak, settings: settings,
+        factor: factor, width: width, imgAlt: imgAlt, imgAltFallback: imgAltFallback,
+        imgClass: imgClass, imgAttributes: imgAttributes,
+        toolbar: toolbar, recipe: recipe);
+
+
+    GpsCoordinates ITypedItem.Gps(string name, NoParamOrder npo, bool? required)
+        => GpsCoordinates.FromJson(((ITypedItem)this).String(name, required: required));
+
+    #region ADAM
+
+    IField? ITypedItem.Field(string name, NoParamOrder npo, bool? required)
+    {
+        // Try to find the object which has that field with a valid value etc.
+        var sourceItem = FindSubItemHavingField(name);
+        return sourceItem?.Field(name, required: required)
+               ?? (IsErrStrict(false, required, _helper.PropsRequired)
+                   ? throw ErrStrict(name)
+                   : null);
+    }
+
+    /// <summary>
+    /// Find the first source having the specified field with a real value...
+    /// </summary>
+    /// <param name="name"></param>
+    /// <returns></returns>
+    private ITypedItem? FindSubItemHavingField(string name)
+    {
+        // Try to find the object which has that field with a valid value etc.
+        var logOrNull = _helper.LogOrNull.SubLogOrNull("Stk.Field", Debug);
+        var specs = new PropReqSpecs(name, Cdf.Dimensions, true, logOrNull);
+        var path = new PropertyLookupPath().Add("DynEntStart", name);
+
+        var findResult = _stackPropLookup.FindPropertyInternal(specs, path);
+        if (findResult == null! /* paranoid */ || findResult.ValueType == ValueTypesWithState.NotFound)
+            return null;
+
+        var sourceItem = findResult.Source as ITypedItem
+                         ?? (findResult.Source as ICanBeItem)?.Item
+                         // TODO: #ConvertItemSettings
+                         ?? (findResult.Source as ICanBeEntity)
+                         .NullOrGetWith(e => Cdf.AsItem(e, new() { ItemIsStrict = false }));
+
+        return sourceItem;
+    }
+
+    IFolder? ITypedItem.Folder(string name, NoParamOrder npo, bool? required)
+    {
+        // Try to find the object which has that field with a valid value etc.
+        var sourceItem = FindSubItemHavingField(name);
+        return sourceItem?.Folder(name, required: required)
+               ?? (IsErrStrict(false, required, _helper.PropsRequired)
+                   ? throw ErrStrict(name)
+                   : null);
+    }
+
+    IFile? ITypedItem.File(string name, NoParamOrder npo, bool? required)
+    {
+        // Try to find the object which has that field with a valid value etc.
+        var sourceItem = FindSubItemHavingField(name);
+        return sourceItem?.File(name, required: required)
+               ?? (IsErrStrict(false, required, _helper.PropsRequired)
+                   ? throw ErrStrict(name)
+                   : null);
+    }
+
+    #endregion
+
+    //ITypedItem ITypedItem.Child(string name, NoParamOrder npo, bool? required)
+    //    => (this as ITypedStack).Child(name, npo, required);
+
+    //IEnumerable<ITypedItem> ITypedItem.Children(string field, NoParamOrder npo, string type, bool? required)
+    //    => (this as ITypedStack).Children(field, npo, type, required);
+
+    T? ITypedItem.Child<T>(string name, NoParamOrder npo, bool? required, GetRelatedOptions? options)
+        where T : class
+        => Cdf.AsCustom<T>(
+            source: ((ITypedItem)this).Child(name, required: required, options: options)
+        );
+
+    IEnumerable<T> ITypedItem.Children<T>(string? field, NoParamOrder npo, string? type, bool? required, GetRelatedOptions? options)
+        => Cdf.AsCustomList<T>(
+            source: ((ITypedItem)this).Children(field: field, npo: npo, type: type, required: required, options: options),
+            npo: npo,
+            nullIfNull: false
+        );
+
+    #region Not implemented: Parents, Publishing, Dyn, Presentation, Metadata
+
+    ITypedItem ITypedItem.Parent(NoParamOrder npo, bool? current, string? type, string? field, GetRelatedOptions? options)
+        => throw new NotImplementedException(ParentNotImplemented);
+
+    IEnumerable<ITypedItem> ITypedItem.Parents(NoParamOrder npo, string? type, string? field, GetRelatedOptions? options)
+        => throw new NotImplementedException(ParentNotImplemented);
+
+    T? ITypedItem.Parent<T>(NoParamOrder npo, bool? current, string? type, string? field, GetRelatedOptions? options)
+        where T : class
+        => throw new NotImplementedException(ParentNotImplemented);
+
+    IEnumerable<T> ITypedItem.Parents<T>(NoParamOrder npo, string? type, string? field, GetRelatedOptions? options)
+        => throw new NotImplementedException(ParentNotImplemented);
+
+    bool ITypedItem.IsPublished => throw new NotImplementedException(NotImplementedError);
+
+    IPublishing ITypedItem.Publishing => throw new NotImplementedException(NotImplementedError);
+
+    [JsonIgnore] // prevent serialization as it's not a normal property
+    ITypedItem ITypedItem.Presentation => throw new NotImplementedException(NotImplementedError);
+
+    [JsonIgnore] // prevent serialization as it's not a normal property
+    ITypedMetadata ITypedItem.Metadata => throw new NotImplementedException(NotImplementedError);
+
+    #endregion
+
+    int ITypedItem.Id => 0;
+
+    Guid ITypedItem.Guid => Guid.Empty;
+
+    string ITypedItem.Title => "";
+
+    IContentType ITypedItem.Type => throw new NotImplementedException();
+}

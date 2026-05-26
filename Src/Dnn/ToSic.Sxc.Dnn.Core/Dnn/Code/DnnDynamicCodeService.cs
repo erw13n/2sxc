@@ -1,0 +1,59 @@
+﻿using System.Web;
+using System.Web.UI;
+using ToSic.Sxc.Dnn.Services;
+using ToSic.Sxc.Dnn.Web;
+using ToSic.Sxc.Services.Sys.DynamicCodeService;
+using ToSic.Sxc.Sys.Render.PageContext;
+using ToSic.Sxc.Web.Sys.PageService;
+using ToSic.Sys.Users;
+
+namespace ToSic.Sxc.Dnn.Code;
+
+/// <summary>
+/// Dnn implementation
+/// goal is that we can hook into certain page lifecycle events to ensure changes
+/// happen to the page when necessary
+/// </summary>
+internal class DnnDynamicCodeService: DynamicCodeService
+{
+    public record MyScopedServices(
+        LazySvc<IPageServiceShared> PageServiceShared,
+        LazySvc<PageChangeSummary> PageChangeSummary,
+        LazySvc<DnnPageChanges> DnnPageChanges,
+        LazySvc<DnnClientResources> DnnClientResources)
+        : DependenciesRecord(connect: [PageServiceShared, PageChangeSummary, DnnPageChanges, DnnClientResources]);
+
+    public DnnDynamicCodeService(Dependencies services) : base(services, $"{DnnConstants.LogName}.DynCdS")
+    {
+        _scopedServices = ScopedServiceProvider.Build<MyScopedServices>().ConnectServices(Log);
+        _user = services.User;
+        Page = HttpContext.Current?.Handler as Page;
+
+        if (Page != null)
+            Page.PreRender += Page_PreRender;
+    }
+
+    private readonly MyScopedServices _scopedServices;
+    private readonly LazySvc<IUser> _user;
+
+
+    private void Page_PreRender(object sender, EventArgs e)
+    {
+        var l = Log.Fn();
+        var user = _user.Value;
+        var changes = _scopedServices.PageChangeSummary.Value.FinalizeAndGetAllChanges(
+            moduleId: 0, // ignore module Id, we don't expect any caching info here
+            _scopedServices.PageServiceShared.Value,
+            new(),
+            user.IsContentAdmin
+        );
+        _scopedServices.DnnPageChanges.Value.Apply(Page, changes);
+
+        // #RemovedV20 #OldDnnAutoJQuery
+        var dnnClientResources = _scopedServices.DnnClientResources.Value.Init(Page, /*false,*/ null);
+        dnnClientResources.AddEverything(changes?.Features);
+        l.Done();
+    }
+
+    public Page Page;
+}

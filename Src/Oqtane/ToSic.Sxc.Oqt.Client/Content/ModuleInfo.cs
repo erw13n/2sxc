@@ -1,0 +1,92 @@
+using Oqtane.Models;
+using Oqtane.Modules;
+using ToSic.Sxc.Oqt.Shared;
+using ToSic.Sxc.Oqt.Shared.Models;
+
+// ReSharper disable once CheckNamespace
+namespace ToSic.Sxc.Oqt.Content;
+
+[ShowApiWhenReleased(ShowApiMode.Never)]
+public class ModuleInfo : IModule
+{
+    private const string Content = "Content";
+    /*
+     * History
+     * These version numbers shouldn't be exactly like the normal ones, so we use a "-" instead of "." so it won't be replaced on search/replace
+     *
+     * List of 2sxc versions with special relevance to Oqtane
+     * 12-00-00 - SQL - 2sxc oqtane module first release.
+     * 12-05-00 - SQL - Oqtane db fix for folders
+     * 13-00-00 - SQL - update TargetTypes Metadata
+     * 13-01-00 - SQL - add SysSettings column to Apps table + add TargetTypes Metadata
+     * 15-00-00 - SQL - updates for DataTimeline table
+     * 16-07-01 - SQL - add Json for Attribute and ContentType configuration + Guid for Attribute
+     * 18-03-00 - SQL - remove AttributeGroups SQL table and related
+     * 19-00-00 - SQL - CASCADE DELETE on REFERENCE constraint FK_ToSIC_EAV_EntityRelationships_ToSIC_EAV_Attributes
+     * 20-00-00 - SQL - Drop table ToSIC_EAV_ContextInfo, ToSIC_EAV_AttributesInSets, etc
+     * 20-00-05 - SQL - Fixes and small updates, etc
+     * 21-00-00 - SQL - TsDynDataHistory: add ParentRef
+     */
+    
+    /// <summary>
+    /// The SQL versions must use a "-" to avoid being replaced on search/replace when releasing a new version.
+    /// When SQL script is added in new version, include new version explicitly in this array.
+    /// </summary>
+    internal static string[] SqlScriptVersions =
+    [
+        "12-00-00",
+        "12-05-00",
+        "13-00-00",
+        "13-01-00",
+        "15-00-00",
+        "16-07-01",
+        "18-03-00",
+        "19-00-00",
+        ModuleInfoConstants.V20_00_00,
+        "20-00-05",
+        ModuleInfoConstants.V21_00_00,
+    ];
+
+    /// <summary>
+    /// Merge versions for use in Oqtane version list
+    /// </summary>
+    /// <returns></returns>
+    internal static string GetSqlAndLatestVersions(string name)
+    {
+        if (name != Content) return "";
+        var versionsWithDot = SqlScriptVersions
+            .Select(v => v.Replace('-', '.'))
+            .Append(EavSystemInfo.VersionString)
+            .ToList();
+        // remove duplicates in case the current version also has SQL scripts
+        var versions = versionsWithDot.Distinct();
+        return string.Join(',', versions);
+    }
+
+    internal static ModuleDefinition BuildModuleDefinition(string name, string description) => new()
+    {
+        Name = name,
+        Description = description,
+        Categories = "Common",
+        Version = EavSystemInfo.VersionString, // Must be duplicated here, so Oqtane Client doesn't depend on server DLLs
+        Owner = "2sic Internet Solutions",
+        Url = "https://2sxc.org",
+        Contact = "@iJungleboy",
+        License = "MIT",
+        Dependencies = "ToSic.Sxc.Oqtane.Shared,ToSic.Sys.Core",
+        // PermissionNames = "",
+        ServerManagerType = "ToSic.Sxc.Oqt.Server.Installation.SxcManager, ToSic.Sxc.Oqtane.Server",
+        // ControlTypeRoutes = "",
+        // This must contain all versions with a SQL script and current/latest version
+        // list versions with sql scripts in \ToSic.Sxc.Oqt.Server\Scripts\
+        ReleaseVersions = GetSqlAndLatestVersions(name),
+        // DefaultAction = "",
+        // SettingsType = "",
+        PackageName = OqtConstants.PackageName, // "ToSic.Sxc.Oqtane"
+        Runtimes = "", // string.Empty enables all runtimes
+        Template = "", // "External" (not "internal") "Default Module Template"
+
+    };
+
+    public ModuleDefinition ModuleDefinition => BuildModuleDefinition(Content, "Text/Image layouts using structured content");
+}
